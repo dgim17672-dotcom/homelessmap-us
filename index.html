@@ -342,7 +342,10 @@ function addMarker(pin) {
     className: 'price-bubble'
   });
 
-  m.on('click', () => openDetail(pin.id));
+  m.on('click', (e) => {
+    L.DomEvent.stopPropagation(e);
+    openDetail(pin.id);
+  });
 }
 
 function openDetail(id) {
