@@ -26,7 +26,7 @@
     display: flex; align-items: center; gap: 6px; transition: all 0.2s;
   }
   .filter-btn.active-food { background: #ff6b6b; color: white; border-color: #ff6b6b; }
-  .filter-btn.active-hair { background: #333; color: white; border-color: #333; }
+  .filter-btn.active-hair { background: #9b59b6; color: white; border-color: #9b59b6; }
   .filter-btn.active-stay { background: #4a90d9; color: white; border-color: #4a90d9; }
 
   /* MODALS */
@@ -70,7 +70,7 @@
     display: flex; align-items: center; justify-content: center; gap: 5px;
   }
   .tab-btn.active { background: #ff6b6b; color: white; border-color: #ff6b6b; }
-  .tab-btn.active.hair { background: #333; border-color: #333; }
+  .tab-btn.active.hair { background: #9b59b6; border-color: #9b59b6; }
   .tab-btn.active.stay { background: #4a90d9; border-color: #4a90d9; }
   .form-label { font-size: 11px; font-weight: 700; color: #888; letter-spacing: 0.8px; margin-bottom: 6px; display: block; }
   .form-group { margin-bottom: 14px; }
@@ -94,7 +94,7 @@
   /* PIN DETAIL MODAL */
   .pin-type-label { font-size: 11px; font-weight: 800; letter-spacing: 1.2px; margin-bottom: 6px; }
   .pin-type-label.food { color: #ff6b6b; }
-  .pin-type-label.hair { color: #333; }
+  .pin-type-label.hair { color: #9b59b6; }
   .pin-type-label.stay { color: #4a90d9; }
   .pin-name { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
   .pin-price { font-size: 40px; font-weight: 900; color: #2ecc71; margin-bottom: 14px; }
@@ -118,14 +118,15 @@
 
   /* PRICE BUBBLE ON MAP */
   .price-bubble {
-    background: white; border: 2px solid #333; border-radius: 20px;
-    padding: 3px 8px; font-size: 12px; font-weight: 800;
-    white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    cursor: pointer;
+    background: white; border: 2.5px solid #333; border-radius: 20px;
+    padding: 4px 10px; font-size: 12px; font-weight: 800;
+    white-space: nowrap; box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+    cursor: pointer; display: inline-block;
+    transform: translateY(-100%);
   }
-  .price-bubble.food { border-color: #ff6b6b; color: #ff6b6b; }
-  .price-bubble.hair { border-color: #333; color: #333; }
-  .price-bubble.stay { border-color: #4a90d9; color: #4a90d9; }
+  .price-bubble.food { border-color: #ff6b6b; color: #ff6b6b; background: white; }
+  .price-bubble.hair { border-color: #9b59b6; color: #9b59b6; background: white; }
+  .price-bubble.stay { border-color: #4a90d9; color: #4a90d9; background: white; }
 </style>
 </head>
 <body>
@@ -280,8 +281,10 @@ function updateMarkerVisibility() {
   });
 }
 
-// Map click → open add modal
+// Map click → open add modal (only if no modal open)
 map.on('click', function(e) {
+  if (document.getElementById('detail-modal').classList.contains('show')) return;
+  if (document.getElementById('add-modal').classList.contains('show')) return;
   pendingLatLng = e.latlng;
   openAddModal();
 });
@@ -432,11 +435,6 @@ db.collection(COLLECTION).where('hidden', '==', false).get()
     });
   })
   .catch(err => console.error('Load error:', err));
-
-// Prevent map click when clicking on marker
-map.on('click', function(e) {
-  // handled above
-});
 </script>
 </body>
 </html>
