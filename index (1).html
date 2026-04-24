@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HomelessMap US & Canada</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #fff; height: 100vh; overflow: hidden; }
+
+  #map { width: 100%; height: 100vh; }
+
+  /* WELCOME POPUP */
+  #welcome-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+  }
+  #welcome-box {
+    background: #fff; color: #222; border-radius: 16px;
+    padding: 28px 24px; max-width: 360px; width: 92%;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+    text-align: center;
+  }
+  #welcome-box h2 {
+    font-size: 1.5rem; font-weight: 800; color: #1a1a2e;
+    margin-bottom: 6px;
+  }
+  #welcome-box .flag { font-size: 1.8rem; margin-bottom: 8px; }
+  #welcome-box .subtitle {
+    font-size: 0.85rem; color: #555; margin-bottom: 14px; line-height: 1.5;
+  }
+  #welcome-box .prices {
+    background: #f0f4ff; border-radius: 10px; padding: 12px;
+    margin-bottom: 14px; text-align: left;
+  }
+  #welcome-box .prices p {
+    font-size: 0.82rem; color: #333; margin: 4px 0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  #welcome-box .prices span.icon { font-size: 1rem; }
+  #welcome-box .legal {
+    font-size: 0.72rem; color: #888; margin-bottom: 16px;
+    line-height: 1.5; text-align: left;
+    border-top: 1px solid #eee; padding-top: 10px;
+  }
+  #welcome-box button {
+    background: #1a1a2e; color: #fff; border: none;
+    padding: 13px 36px; border-radius: 30px; font-size: 1rem;
+    font-weight: 700; cursor: pointer; width: 100%;
+    transition: background 0.2s;
+  }
+  #welcome-box button:hover { background: #2d2d5e; }
+
+  /* CATEGORY BUTTONS */
+  #category-bar {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; z-index: 1000;
+    background: rgba(255,255,255,0.95); padding: 8px 12px;
+    border-radius: 30px; box-shadow: 0 2px 16px rgba(0,0,0,0.2);
+  }
+  .cat-btn {
+    border: none; border-radius: 20px; padding: 7px 14px;
+    font-size: 0.78rem; font-weight: 700; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .cat-btn.food { background: #ff6b6b; color: #fff; }
+  .cat-btn.hair { background: #4ecdc4; color: #fff; }
+  .cat-btn.stay { background: #45b7d1; color: #fff; }
+  .cat-btn:hover { opacity: 0.85; transform: scale(1.05); }
+  .cat-btn.active { box-shadow: 0 0 0 3px rgba(0,0,0,0.3); }
+
+  /* FORM POPUP */
+  #form-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center; z-index: 8000;
+  }
+  #form-box {
+    background: #fff; color: #222; border-radius: 16px;
+    padding: 24px 20px; max-width: 340px; width: 92%;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  }
+  #form-box h3 { font-size: 1rem; font-weight: 800; margin-bottom: 14px; color: #1a1a2e; }
+  #form-box input, #form-box select {
+    width: 100%; padding: 10px 12px; border: 1.5px solid #ddd;
+    border-radius: 8px; font-size: 0.88rem; margin-bottom: 10px;
+    color: #222; background: #fff; outline: none;
+  }
+  #form-box input:focus, #form-box select:focus { border-color: #1a1a2e; }
+  .price-note { font-size: 0.75rem; color: #e74c3c; margin: -6px 0 10px; font-weight: 600; }
+  #form-box .btn-row { display: flex; gap: 10px; margin-top: 4px; }
+  #form-box .btn-row button {
+    flex: 1; padding: 11px; border-radius: 10px; border: none;
+    font-size: 0.88rem; font-weight: 700; cursor: pointer;
+  }
+  #form-box .btn-cancel { background: #eee; color: #555; }
+  #form-box .btn-submit { background: #1a1a2e; color: #fff; }
+
+  /* DETAIL POPUP */
+  #detail-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center; z-index: 8000;
+  }
+  #detail-box {
+    background: #fff; color: #222; border-radius: 16px;
+    padding: 24px 20px; max-width: 320px; width: 88%;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  }
+  #detail-box h3 { font-size: 1.1rem; font-weight: 800; color: #1a1a2e; margin-bottom: 4px; }
+  #detail-box .detail-cat { font-size: 0.78rem; font-weight: 700; margin-bottom: 8px; }
+  #detail-box .detail-price { font-size: 1.5rem; font-weight: 900; color: #1a1a2e; margin-bottom: 4px; }
+  #detail-box .detail-phone { font-size: 0.85rem; color: #555; margin-bottom: 4px; }
+  #detail-box .detail-insta { font-size: 0.82rem; color: #e4405f; margin-bottom: 14px; }
+  #detail-box .vote-row { display: flex; gap: 10px; }
+  #detail-box .vote-btn {
+    flex: 1; padding: 10px; border: none; border-radius: 10px;
+    font-size: 0.9rem; font-weight: 700; cursor: pointer;
+  }
+  .vote-like { background: #4CAF50; color: #fff; }
+  .vote-dislike { background: #f44336; color: #fff; }
+  #detail-box .vote-msg { font-size: 0.75rem; color: #888; margin-top: 8px; text-align: center; }
+  #detail-close {
+    position: absolute; top: 12px; right: 14px;
+    background: #eee; border: none; border-radius: 50%;
+    width: 28px; height: 28px; font-size: 1rem; cursor: pointer; color: #444;
+  }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: #1a1a2e; color: #fff; padding: 10px 22px;
+    border-radius: 20px; font-size: 0.85rem; z-index: 9998;
+    display: none; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+
+  .leaflet-popup-content-wrapper { display: none; }
+</style>
+</head>
+<body>
+
+<!-- WELCOME POPUP -->
+<div id="welcome-overlay">
+  <div id="welcome-box">
+    <div class="flag">🇺🇸🇨🇦</div>
+    <h2>HomelessMap US & Canada</h2>
+    <p class="subtitle">Find and share budget-friendly places for food, haircuts & stays across the US and Canada.</p>
+    <div class="prices">
+      <p><span class="icon">🍽️</span> <strong>Food</strong> — Under $6.00</p>
+      <p><span class="icon">✂️</span> <strong>Haircut</strong> — Under $10.00</p>
+      <p><span class="icon">🛏️</span> <strong>Stay</strong> — Under $40.00/night</p>
+    </div>
+    <div class="legal">
+      ⚠️ <strong>Disclaimer:</strong> This app is for informational purposes only. We do not guarantee accuracy of listings. Prices may change. Use at your own risk. Users are responsible for verifying all information before visiting any location.<br><br>
+      📍 <strong>How to use:</strong> Select a category (Food / Haircut / Stay), then tap the map to add a pin. Fill in the name, phone, price, and Instagram. Tap any pin to view details and vote!
+    </div>
+    <button onclick="closeWelcome()">Let's Go! 🚀</button>
+  </div>
+</div>
+
+<!-- CATEGORY BAR -->
+<div id="category-bar">
+  <button class="cat-btn food active" onclick="setCategory('food', this)">🍽️ Food</button>
+  <button class="cat-btn hair" onclick="setCategory('hair', this)">✂️ Haircut</button>
+  <button class="cat-btn stay" onclick="setCategory('stay', this)">🛏️ Stay</button>
+</div>
+
+<!-- MAP -->
+<div id="map"></div>
+
+<!-- FORM POPUP -->
+<div id="form-overlay">
+  <div id="form-box">
+    <h3 id="form-title">📍 Add Food Place</h3>
+    <input type="text" id="input-name" placeholder="Place name *" maxlength="50"/>
+    <input type="tel" id="input-phone" placeholder="Phone number"/>
+    <input type="number" id="input-price" placeholder="Price (USD) *" step="0.01" min="0"/>
+    <p class="price-note" id="price-note">Max $6.00 for Food</p>
+    <input type="text" id="input-insta" placeholder="Instagram (optional)"/>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closeForm()">Cancel</button>
+      <button class="btn-submit" onclick="submitPin()">Add Pin ✅</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL POPUP -->
+<div id="detail-overlay">
+  <div id="detail-box" style="position:relative;">
+    <button id="detail-close" onclick="closeDetail()">✕</button>
+    <h3 id="d-name"></h3>
+    <div class="detail-cat" id="d-cat"></div>
+    <div class="detail-price" id="d-price"></div>
+    <div class="detail-phone" id="d-phone"></div>
+    <div class="detail-insta" id="d-insta"></div>
+    <div class="vote-row">
+      <button class="vote-btn vote-like" onclick="vote('like')">👍 <span id="d-likes">0</span></button>
+      <button class="vote-btn vote-dislike" onclick="vote('dislike')">👎 <span id="d-dislikes">0</span></button>
+    </div>
+    <div class="vote-msg" id="vote-msg"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyBjuUCbzlyszfsNbNKHSQLw4TH3hsgI98w",
+  authDomain: "homelessmap-e101d.firebaseapp.com",
+  projectId: "homelessmap-e101d",
+  storageBucket: "homelessmap-e101d.firebasestorage.app",
+  messagingSenderId: "598305435342",
+  appId: "1:598305435342:web:4274e7362b21bbbb976a9f",
+  measurementId: "G-R5VNG4TEYJ"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const COLLECTION = 'pins_us'; // US & Canada separate collection
+
+// Price limits
+const PRICE_LIMITS = { food: 6, hair: 10, stay: 40 };
+const CAT_LABELS = { food: '🍽️ Food', hair: '✂️ Haircut', stay: '🛏️ Stay' };
+const CAT_COLORS = { food: '#ff6b6b', hair: '#4ecdc4', stay: '#45b7d1' };
+
+// US & Canada bounding box
+const BOUNDS = {
+  minLat: 24.0, maxLat: 83.5,   // South Florida to Arctic Canada
+  minLng: -168.0, maxLng: -52.0 // Alaska to Newfoundland
+};
+
+let currentCategory = 'food';
+let pendingLat = null, pendingLng = null;
+let currentPinId = null;
+
+// Map centered on continental US center (Kansas area)
+const map = L.map('map', { zoomControl: true }).setView([39.5, -98.5], 4);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap'
+}).addTo(map);
+
+function closeWelcome() {
+  document.getElementById('welcome-overlay').style.display = 'none';
+}
+
+function setCategory(cat, btn) {
+  currentCategory = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function isInUSCanada(lat, lng) {
+  return lat >= BOUNDS.minLat && lat <= BOUNDS.maxLat &&
+         lng >= BOUNDS.minLng && lng <= BOUNDS.maxLng;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2500);
+}
+
+// Map click → place pin immediately + open form
+map.on('click', function(e) {
+  const { lat, lng } = e.latlng;
+  if (!isInUSCanada(lat, lng)) {
+    showToast('📍 Please tap within US or Canada!');
+    return;
+  }
+  pendingLat = lat;
+  pendingLng = lng;
+
+  // Place temp pin immediately
+  if (window.tempMarker) map.removeLayer(window.tempMarker);
+  window.tempMarker = L.circleMarker([lat, lng], {
+    radius: 10, color: CAT_COLORS[currentCategory],
+    fillColor: CAT_COLORS[currentCategory], fillOpacity: 0.9, weight: 2
+  }).addTo(map);
+
+  // Open form
+  const limits = { food: '$6.00', hair: '$10.00', stay: '$40.00' };
+  const catNames = { food: 'Food', hair: 'Haircut', stay: 'Stay' };
+  document.getElementById('form-title').textContent = `📍 Add ${catNames[currentCategory]} Place`;
+  document.getElementById('price-note').textContent = `Max ${limits[currentCategory]} for ${catNames[currentCategory]}`;
+  document.getElementById('input-name').value = '';
+  document.getElementById('input-phone').value = '';
+  document.getElementById('input-price').value = '';
+  document.getElementById('input-insta').value = '';
+  document.getElementById('form-overlay').style.display = 'flex';
+});
+
+function closeForm() {
+  document.getElementById('form-overlay').style.display = 'none';
+  if (window.tempMarker) { map.removeLayer(window.tempMarker); window.tempMarker = null; }
+  pendingLat = null; pendingLng = null;
+}
+
+function submitPin() {
+  const name = document.getElementById('input-name').value.trim();
+  const phone = document.getElementById('input-phone').value.trim();
+  const priceRaw = parseFloat(document.getElementById('input-price').value);
+  const insta = document.getElementById('input-insta').value.trim();
+
+  if (!name) { showToast('⚠️ Please enter a place name!'); return; }
+  if (isNaN(priceRaw) || priceRaw < 0) { showToast('⚠️ Please enter a valid price!'); return; }
+
+  const limit = PRICE_LIMITS[currentCategory];
+  if (priceRaw > limit) {
+    showToast(`⚠️ Price must be under $${limit}.00 for this category!`);
+    return;
+  }
+
+  const pinData = {
+    name, phone, price: priceRaw, insta,
+    category: currentCategory,
+    lat: pendingLat, lng: pendingLng,
+    likes: 0, dislikes: 0,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  db.collection(COLLECTION).add(pinData).then(docRef => {
+    document.getElementById('form-overlay').style.display = 'none';
+    if (window.tempMarker) { map.removeLayer(window.tempMarker); window.tempMarker = null; }
+    addMarker({ id: docRef.id, ...pinData });
+    showToast('✅ Pin added successfully!');
+    pendingLat = null; pendingLng = null;
+  }).catch(() => showToast('❌ Error saving pin. Try again.'));
+}
+
+function addMarker(pin) {
+  const color = CAT_COLORS[pin.category] || '#aaa';
+  const marker = L.circleMarker([pin.lat, pin.lng], {
+    radius: 11, color: '#fff', weight: 2,
+    fillColor: color, fillOpacity: 0.95
+  }).addTo(map);
+
+  marker.on('click', () => openDetail(pin.id));
+}
+
+function openDetail(pinId) {
+  db.collection(COLLECTION).doc(pinId).get().then(doc => {
+    if (!doc.exists) return;
+    const d = doc.data();
+    currentPinId = pinId;
+    document.getElementById('d-name').textContent = d.name;
+    document.getElementById('d-cat').textContent = CAT_LABELS[d.category] || d.category;
+    document.getElementById('d-cat').style.color = CAT_COLORS[d.category] || '#aaa';
+    document.getElementById('d-price').textContent = `$${parseFloat(d.price).toFixed(2)}`;
+    document.getElementById('d-phone').textContent = d.phone ? `📞 ${d.phone}` : '';
+    document.getElementById('d-insta').textContent = d.insta ? `📸 @${d.insta}` : '';
+    document.getElementById('d-likes').textContent = d.likes || 0;
+    document.getElementById('d-dislikes').textContent = d.dislikes || 0;
+    document.getElementById('vote-msg').textContent = '';
+    document.getElementById('detail-overlay').style.display = 'flex';
+  });
+}
+
+function closeDetail() {
+  document.getElementById('detail-overlay').style.display = 'none';
+  currentPinId = null;
+}
+
+function vote(type) {
+  if (!currentPinId) return;
+  const votedPins = JSON.parse(localStorage.getItem('votedPins_us') || '{}');
+  if (votedPins[currentPinId]) {
+    document.getElementById('vote-msg').textContent = '⚠️ You already voted on this pin!';
+    return;
+  }
+  const field = type === 'like' ? 'likes' : 'dislikes';
+  db.collection(COLLECTION).doc(currentPinId).update({
+    [field]: firebase.firestore.FieldValue.increment(1)
+  }).then(() => {
+    votedPins[currentPinId] = type;
+    localStorage.setItem('votedPins_us', JSON.stringify(votedPins));
+    const el = document.getElementById(type === 'like' ? 'd-likes' : 'd-dislikes');
+    el.textContent = parseInt(el.textContent) + 1;
+    document.getElementById('vote-msg').textContent = type === 'like' ? '👍 Thanks for your vote!' : '👎 Thanks for the feedback!';
+  });
+}
+
+// Load existing pins
+function loadPins() {
+  db.collection(COLLECTION).get().then(snapshot => {
+    snapshot.forEach(doc => addMarker({ id: doc.id, ...doc.data() }));
+  });
+}
+
+loadPins();
+</script>
+</body>
+</html>
