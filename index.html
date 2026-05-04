@@ -224,7 +224,7 @@
     <div class="d-price" id="d-price"></div>
     <div class="d-phone" id="d-phone"></div>
     <div class="d-insta" id="d-insta"></div>
-    <div id="d-desc" style="font-size:0.82rem;color:#555;margin-bottom:8px;line-height:1.5;display:none;"></div>
+    <div id="d-desc" style="font-size:0.82rem;color:#555;margin-bottom:8px;line-height:1.5;display:none;word-break:break-word;max-height:80px;overflow-y:auto;"></div>
     <div class="d-contact">💬 Contact for price confirmation via message/DM</div>
     <div class="vote-row">
       <button class="vote-btn vl" onclick="vote('like')">👍</button>
@@ -457,7 +457,48 @@ db.collection(COLLECTION).get().then(snap => {
   snap.forEach(doc => addMarker({ id: doc.id, ...doc.data() }));
 }).catch(e => console.error(e));
 
-// DRAGGABLE DETAIL POPUP
+// DRAGGABLE POPUPS
+(function() {
+  function makeDraggable(box) {
+    let isDragging = false, startX, startY, origX, origY;
+    box.addEventListener('mousedown', function(e) {
+      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+      isDragging = true;
+      startX = e.clientX; startY = e.clientY;
+      const r = box.getBoundingClientRect();
+      origX = r.left; origY = r.top;
+      box.style.margin = '0'; box.style.position = 'fixed';
+      box.style.left = origX + 'px'; box.style.top = origY + 'px';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e) {
+      if (!isDragging) return;
+      box.style.left = (origX + e.clientX - startX) + 'px';
+      box.style.top = (origY + e.clientY - startY) + 'px';
+    });
+    document.addEventListener('mouseup', function() { isDragging = false; });
+    box.addEventListener('touchstart', function(e) {
+      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      const t = e.touches[0];
+      isDragging = true; startX = t.clientX; startY = t.clientY;
+      const r = box.getBoundingClientRect();
+      origX = r.left; origY = r.top;
+      box.style.margin = '0'; box.style.position = 'fixed';
+      box.style.left = origX + 'px'; box.style.top = origY + 'px';
+    });
+    document.addEventListener('touchmove', function(e) {
+      if (!isDragging) return;
+      const t = e.touches[0];
+      box.style.left = (origX + t.clientX - startX) + 'px';
+      box.style.top = (origY + t.clientY - startY) + 'px';
+    });
+    document.addEventListener('touchend', function() { isDragging = false; });
+  }
+  makeDraggable(document.getElementById('detail-box'));
+  makeDraggable(document.getElementById('form-box'));
+})();
+
+// LEGACY (unused now)
 (function() {
   let isDragging = false, startX, startY, origX, origY;
   const box = document.getElementById('detail-box');
